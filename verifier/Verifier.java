@@ -4,7 +4,13 @@ public class Verifier {
 	// produced by the IP model
 	public static void main(String[] args) {
 
+		// Parse file and create maze
+		boolean[][] maze = parseFileCreateMaze(args[0]);
 
 	}
 
+	private boolean[][] parseFileCreateMaze(File mazeFile) {
+
+	}
 }
+
