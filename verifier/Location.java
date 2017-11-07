@@ -1,17 +1,9 @@
-public class Location<X, Y, Z> {
+public class Location<X, Y> {
     // n is the size of the rows and columns;
-    public int row, column, n;
+    public int row, column;
 
-    public Location(int row, int column, int n) {
+    public Location(int row, int column) {
         this.row = row;
         this.column = column;
-        this.n = n;
-    }
-
-    public boolean equal() {
-        if(this.row==this.n && this.column==0)
-            return true;
-        else
-            return false;
     }
 }
