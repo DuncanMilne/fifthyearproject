@@ -18,6 +18,7 @@ public class Maze {
     }
 
     protected void simulate(int score) {
+
         // Starts at two based on the way the game on Kongregate works. Squeaky needs to move onto the start vertex
         // and move off of the finish vertex, simply starting at 2 simulates these steps.
         int steps = 2;
@@ -27,7 +28,6 @@ public class Maze {
         int newVisitsValue = 0;
 
         // Checks to see if mouse is in finish cell
-        //System.out.println(location.row != maze.size() - 2);
         while (location.row != maze.size() - 2 || location.column != 1) {
             location = nextCell(location);
             newVisitsValue = visits.get(location.row).get(location.column) + 1;
@@ -68,7 +68,6 @@ public class Maze {
             File tryAgainFile = new File(System.getProperty("user.dir") + "/mazeFile.txt");
             parseFileCreateMaze(tryAgainFile);
         }
-        // TODO - add check here to ensure all rows and columns are same size
         return maze;
     }
 
@@ -106,6 +105,23 @@ public class Maze {
             return true;
         else
             return false;
+    }
+
+    public Location nextCell(Location location) {
+
+        Location down = new Location(location.row+1, location.column);
+        Location right = new Location(location.row, location.column+1);
+        Location left = new Location(location.row, location.column-1);
+        Location up = new Location(location.row-1, location.column);
+
+        if (compareLocations(down, right) && compareLocations(down, left) && compareLocations(down, up))
+            return down;
+        else if (compareLocations(right, left) && compareLocations(right, up))
+            return right;
+        else if (compareLocations(left, up))
+            return left;
+        else
+            return up;
     }
 
 }
