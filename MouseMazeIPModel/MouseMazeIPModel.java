@@ -8,7 +8,7 @@ public class MouseMazeIPModel {
 	public GRBModel GRBModel;
 	public Utilities utilities;
 	private final int size;
-	private final double upperBound;
+	final double upperBound;
 	
 	// Objective function
 	GRBLinExpr T;
@@ -37,7 +37,7 @@ public class MouseMazeIPModel {
 		} catch (GRBException e) {
 			e.printStackTrace();
 		}
-		this.upperBound = 10;
+		this.upperBound = 50;
 		this.size = size;
 		this.utilities = new Utilities(size, GRBModel, (int) upperBound);
 		grid = utilities.createGrid();
@@ -81,7 +81,8 @@ public class MouseMazeIPModel {
 		try {
 			sumOfDecisions = new GRBLinExpr();
 			sumOfDecisions.addTerms(ones, decisionsUntilK);
-//			GRBModel.addConstr(visits.get(row).get(column).get(timestep), GRB.EQUAL, sumOfDecisions, "");
+			sumOfDecisions.addTerm(upperBound + 1, grid.get(row).get(column));
+			GRBModel.addConstr(visits.get(row).get(column).get(timestep), GRB.EQUAL, sumOfDecisions, "");
 		} catch (GRBException e) {
 			e.printStackTrace();
 		}
@@ -125,27 +126,25 @@ public class MouseMazeIPModel {
 			GRBVar downLeqRight = standardBoolean(), downLeqLeft = standardBoolean(), downLeqUp = standardBoolean();
 			
 			GRBLinExpr downLeqRightExpr = new GRBLinExpr(), downLeqLeftExpr = new GRBLinExpr(), downLeqUpExpr = new GRBLinExpr();
-			
+
 			addTermsForAddition("down", downLeqRightExpr, downLeqLeftExpr, downLeqUpExpr);
 			
 			addNegations("right", downLeqRightExpr, "left", downLeqLeftExpr, "up", downLeqUpExpr);
 			
-			addIndicatorVariableConstraints(downLeqRight, downLeqRightExpr, downLeqLeft, downLeqLeftExpr, downLeqUp, downLeqUpExpr);
-			
-			GRBVar[] toSatisfy = new GRBVar[] {downLeqRight, downLeqLeft, downLeqUp, decisions.get(row).get(column).get(timestep)};
+			GRBModel.addGenConstrIndicator(downLeqRight, 1, downLeqRightExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(downLeqRight, 0, downLeqRightExpr, GRB.GREATER_EQUAL, 1, "");
+			GRBModel.addGenConstrIndicator(downLeqLeft, 1, downLeqLeftExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(downLeqLeft, 0, downLeqLeftExpr, GRB.GREATER_EQUAL, 1, "");
+			GRBModel.addGenConstrIndicator(downLeqUp, 1, downLeqUpExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(downLeqUp, 0, downLeqUpExpr, GRB.GREATER_EQUAL, 1, "");
+		
+			GRBVar[] toSatisfy = new GRBVar[] {downLeqRight, downLeqLeft, downLeqUp, decisions.get(row).get(column).get(timestep)/*, indicator*/};
 			
 			GRBVar satisfied = standardBoolean();
 			
 			GRBModel.addGenConstrAnd(satisfied, toSatisfy, "");
 			
-			GRBVar indicator = standardBoolean();
-			GRBLinExpr indicatorExpr = new GRBLinExpr();
-			indicatorExpr.addTerm(1.0, satisfied);
-			indicatorExpr.addTerm(-1.0, grid.get(row + 1).get(column));
-			
-			addIndicatorVariableConstraints(indicator, indicatorExpr);
-			
-			GRBModel.addConstr(decisions.get(row + 1).get(column).get(timestep + 1), GRB.EQUAL, indicator, "");
+			GRBModel.addConstr(decisions.get(row + 1).get(column).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "");
 		} else {
 			moveToFinish();
 		}
@@ -159,40 +158,33 @@ public class MouseMazeIPModel {
 			GRBLinExpr rightLessThanDownExpr = new GRBLinExpr(), rightLeqLeftExpr = new GRBLinExpr(), rightLeqThanUpExpr = new GRBLinExpr();
 
 			rightLessThanDownExpr.addConstant(1.0);
-			// it is not true that right is less than down because down has an obstacle. we need to make sure that if down has an obstacle we dont consider it...
+
 			addTermsForAddition("right", rightLessThanDownExpr, rightLeqLeftExpr, rightLeqThanUpExpr);
 			
 			
 			addNegations("down", rightLessThanDownExpr, "left", rightLeqLeftExpr, "up", rightLeqThanUpExpr);
+			GRBModel.addGenConstrIndicator(rightLessThanDown, 1, rightLessThanDownExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(rightLessThanDown, 0, rightLessThanDownExpr, GRB.GREATER_EQUAL, 1, "");
+			GRBModel.addGenConstrIndicator(rightLeqLeft, 1, rightLeqLeftExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(rightLeqLeft, 0, rightLeqLeftExpr, GRB.GREATER_EQUAL, 1, "");
+			GRBModel.addGenConstrIndicator(rightLeqUp, 1, rightLeqThanUpExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(rightLeqUp, 0, rightLeqThanUpExpr, GRB.GREATER_EQUAL, 1, "");
 			
 			
-			addIndicatorVariableConstraints(rightLessThanDown, rightLessThanDownExpr, rightLeqLeft, rightLeqLeftExpr, rightLeqUp, rightLeqThanUpExpr);
-			
-			GRBVar rightLessThanDownIndicator = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "");
-			
-			GRBModel.addGenConstrOr(rightLessThanDownIndicator, new GRBVar[] {grid.get(row+1).get(column), rightLessThanDown}, "");
-			
-			GRBVar[] toSatisfy = new GRBVar[] {rightLessThanDownIndicator, rightLeqLeft, rightLeqUp, decisions.get(row).get(column).get(timestep)};
+			GRBVar[] toSatisfy = new GRBVar[] {rightLessThanDown, rightLeqLeft, rightLeqUp, decisions.get(row).get(column).get(timestep)/*, indicator*/};
 			
 			GRBVar satisfied = standardBoolean();
 			
 			GRBModel.addGenConstrAnd(satisfied, toSatisfy, "");
 			
-			GRBVar indicator = standardBoolean();
-			GRBLinExpr indicatorExpr = new GRBLinExpr();
-			indicatorExpr.addTerm(1.0, satisfied);
-			indicatorExpr.addTerm(-1.0, grid.get(row).get(column + 1));
-			
-			addIndicatorVariableConstraints(indicator, indicatorExpr);
-			
-			GRBModel.addConstr(decisions.get(row).get(column + 1).get(timestep + 1), GRB.EQUAL, indicator, "");
+			GRBModel.addConstr(decisions.get(row).get(column + 1).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "");
 		} else {
 			moveToFinish();
 		}
 	}
 	
 	public void moveLeft() throws GRBException {
-		if (!oneAway("left")) {
+		if(!oneAway("left")) {
 			GRBVar leftLessThanDown = standardBoolean(), leftLessThanRight = standardBoolean(), leftLeqUp = standardBoolean();
 			
 			GRBLinExpr leftLessThanDownExpr = new GRBLinExpr(), leftLessThanRightExpr = new GRBLinExpr(), leftLeqUpExpr = new GRBLinExpr();
@@ -204,37 +196,28 @@ public class MouseMazeIPModel {
 			
 			addNegations("down", leftLessThanDownExpr, "right", leftLessThanRightExpr, "up", leftLeqUpExpr);
 			
-			addIndicatorVariableConstraints(leftLessThanDown, leftLessThanDownExpr, leftLessThanRight, leftLessThanRightExpr, leftLeqUp, leftLeqUpExpr);
-			
-			GRBVar leftLessThanDownIndicator = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "");
-			
-			GRBModel.addGenConstrOr(leftLessThanDownIndicator, new GRBVar[] {grid.get(row + 1).get(column), leftLessThanDown}, "");
-			
-			GRBVar leftLessThanRightIndicator = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "");
-			
-			GRBModel.addGenConstrOr(leftLessThanRightIndicator, new GRBVar[] {grid.get(row).get(column+1), leftLessThanRight}, "");
-			
-			GRBVar[] toSatisfy = new GRBVar[] {leftLessThanDownIndicator, leftLessThanRightIndicator, leftLeqUp, decisions.get(row).get(column).get(timestep)};
+//			
+			GRBModel.addGenConstrIndicator(leftLessThanDown, 1, leftLessThanDownExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(leftLessThanDown, 0, leftLessThanDownExpr, GRB.GREATER_EQUAL, 1, "");
+			GRBModel.addGenConstrIndicator(leftLessThanRight, 1, leftLessThanRightExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(leftLessThanRight, 0, leftLessThanRightExpr, GRB.GREATER_EQUAL, 1, "");
+			GRBModel.addGenConstrIndicator(leftLeqUp, 1, leftLeqUpExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(leftLeqUp, 0, leftLeqUpExpr, GRB.GREATER_EQUAL, 1, "");
+				
+			GRBVar[] toSatisfy = new GRBVar[] {	leftLessThanDown, leftLessThanRight, leftLeqUp, decisions.get(row).get(column).get(timestep), /*indicator*/};
 			
 			GRBVar satisfied = standardBoolean();
 			
 			GRBModel.addGenConstrAnd(satisfied, toSatisfy, "");
 			
-			GRBVar indicator = standardBoolean();
-			GRBLinExpr indicatorExpr = new GRBLinExpr();
-			indicatorExpr.addTerm(1.0, satisfied);
-			indicatorExpr.addTerm(-1.0, grid.get(row).get(column - 1));
-			
-			addIndicatorVariableConstraints(indicator, indicatorExpr);
-			
-			GRBModel.addConstr(decisions.get(row).get(column - 1).get(timestep+1), GRB.EQUAL, indicator, "");
+			GRBModel.addConstr(decisions.get(row).get(column -1).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "");
 		} else {
 			moveToFinish();
 		}
 	}
 	
 	public void moveUp() throws GRBException {
-		if (!oneAway("up")) {
+		if (!oneAway("up") && !oneAway("down")) {
 			GRBVar upLessThanDown = standardBoolean(), upLessThanRight = standardBoolean(), upLessThanLeft = standardBoolean();
 			
 			GRBLinExpr upLessThanDownExpr = new GRBLinExpr(), upLessThanRightExpr = new GRBLinExpr(), upLessThanLeftExpr = new GRBLinExpr();
@@ -247,34 +230,20 @@ public class MouseMazeIPModel {
 			
 			addNegations("down", upLessThanDownExpr, "right", upLessThanRightExpr, "left", upLessThanLeftExpr);
 			
-			addIndicatorVariableConstraints(upLessThanDown, upLessThanDownExpr, upLessThanRight, upLessThanRightExpr, upLessThanLeft, upLessThanLeftExpr);
+			GRBModel.addGenConstrIndicator(upLessThanDown, 1, upLessThanDownExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(upLessThanDown, 0, upLessThanDownExpr, GRB.GREATER_EQUAL, 1, "");
+			GRBModel.addGenConstrIndicator(upLessThanRight, 1, upLessThanRightExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(upLessThanRight, 0, upLessThanRightExpr, GRB.GREATER_EQUAL, 1, "");
+			GRBModel.addGenConstrIndicator(upLessThanLeft, 1, upLessThanLeftExpr, GRB.LESS_EQUAL, 0, "");
+			GRBModel.addGenConstrIndicator(upLessThanLeft, 0, upLessThanLeftExpr, GRB.GREATER_EQUAL, 1, "");
 			
-			GRBVar upLessThanDownIndicator = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "");
-			
-			GRBModel.addGenConstrOr(upLessThanDownIndicator, new GRBVar[] {grid.get(row + 1).get(column), upLessThanDown}, "");
-			
-			GRBVar upLessThanRightIndicator = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "");
-			
-			GRBModel.addGenConstrOr(upLessThanRightIndicator, new GRBVar[] {grid.get(row).get(column + 1), upLessThanRight}, "");
-			
-			GRBVar upLessThanLeftIndicator = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "");
-			
-			GRBModel.addGenConstrOr(upLessThanLeftIndicator, new GRBVar[] {grid.get(row).get(column - 1), upLessThanLeft}, "");
-			
-			GRBVar[] toSatisfy = new GRBVar[] {upLessThanDownIndicator, upLessThanRightIndicator, upLessThanLeftIndicator, decisions.get(row).get(column).get(timestep)};
+			GRBVar[] toSatisfy = new GRBVar[] {	upLessThanDown, upLessThanRight, upLessThanLeft, decisions.get(row).get(column).get(timestep), /*indicator*/};
 			
 			GRBVar satisfied = standardBoolean();
 			
 			GRBModel.addGenConstrAnd(satisfied, toSatisfy, "");
 			
-			GRBVar indicator = standardBoolean();
-			GRBLinExpr indicatorExpr = new GRBLinExpr();
-			indicatorExpr.addTerm(1.0, satisfied);
-			indicatorExpr.addTerm(-1.0, grid.get(row - 1).get(column));
-			
-			addIndicatorVariableConstraints(indicator, indicatorExpr);
-			
-			GRBModel.addConstr(decisions.get(row - 1).get(column).get(timestep+1), GRB.EQUAL, indicator, "");
+			GRBModel.addConstr(decisions.get(row-1).get(column).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "");
 		} else {
 			moveToFinish();
 		}
@@ -284,28 +253,6 @@ public class MouseMazeIPModel {
 		addTermForNegation(firstString, first);
 		addTermForNegation(secondString, second);
 		addTermForNegation(thirdString, third);
-	}
-	
-	public void addIndicatorVariableConstraints(GRBVar indicator1, GRBLinExpr expression1, GRBVar indicator2, GRBLinExpr expression2,GRBVar indicator3, GRBLinExpr expression3) {
-		try {
-			GRBModel.addGenConstrIndicator(indicator1, 1, expression1, GRB.LESS_EQUAL, 0.0, "");
-			GRBModel.addGenConstrIndicator(indicator1, 0, expression1, GRB.GREATER_EQUAL, 1.0, "");
-			GRBModel.addGenConstrIndicator(indicator2, 1, expression2, GRB.LESS_EQUAL, 0.0, "");
-			GRBModel.addGenConstrIndicator(indicator2, 0, expression2, GRB.GREATER_EQUAL, 1.0, "");
-			GRBModel.addGenConstrIndicator(indicator3, 1, expression3, GRB.LESS_EQUAL, 0.0, "");
-			GRBModel.addGenConstrIndicator(indicator3, 0, expression3, GRB.GREATER_EQUAL, 1.0, "");
-		} catch (GRBException e) {
-			e.printStackTrace();
-		}
-	}
-	
-	public void addIndicatorVariableConstraints(GRBVar indicator1, GRBLinExpr expression1) {
-		try {
-			GRBModel.addGenConstrIndicator(indicator1, 0, expression1, GRB.LESS_EQUAL, 0.0, "");
-			GRBModel.addGenConstrIndicator(indicator1, 1, expression1, GRB.GREATER_EQUAL, 1.0, "");
-		} catch (GRBException e) {
-			e.printStackTrace();
-		}
 	}
 	
 	public void addTermsForAddition(String direction, GRBLinExpr first, GRBLinExpr second, GRBLinExpr third) {
@@ -475,7 +422,7 @@ public class MouseMazeIPModel {
 
 			TkMinusOneArray[k+1] = TkMinusOne;
 		}
-		return TkMinusOne[(size*size)-1][0];
+		return TkMinusOne[(size*size)-size	][0];
 	}
 	
 	void printTkMinusOneArray() {
@@ -504,56 +451,70 @@ public class MouseMazeIPModel {
 	}
 	
 	void addEdgeDown(GRBVar currentVar, int row) throws GRBException {
-		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr();		
-		edgeExists.addConstant(1.0);
-		edgeExists.addTerm(-1.0, grid.get(row/size + 1).get(row%size + 1));
-		edgeExists.addTerm(-1.0, grid.get(row/size + 2).get(row%size + 1)); // this is one down from the above
+		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr(),edgeExists4= new GRBLinExpr();
+		edgeExists.addConstant(1);
+		edgeExists.addTerm(-1,grid.get(row/size + 2).get(row%size + 1));
+		
+		edgeExists2.addConstant(1);
+		edgeExists2.addTerm(-1, grid.get(row/size + 1).get(row%size + 1));
+		
+		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "duncan");
+		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "duncan");
 
-//		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "");
-//		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "");
-		GRBModel.addGenConstrIndicator(currentVar, 1, edgeExists, GRB.EQUAL, 1, "");
-		GRBModel.addGenConstrIndicator(currentVar, 0, edgeExists, GRB.LESS_EQUAL, 0, "");
+		edgeExists3.addConstant(1.0);
+		edgeExists3.addTerms(new double[] {-1,-1}, new GRBVar[] {grid.get(row/size + 1).get(row%size + 1), grid.get(row/size + 2).get(row%size + 1)});
+		GRBModel.addConstr(currentVar, GRB.GREATER_EQUAL, edgeExists3, "");
 	}
 
 	// grid contains edges adjacent to grid so just doing grid.get(row+whichRow).get(column) will not work as we get the two edges as well
 	// if column%size == 0 || column % size+1 == 0 - nope
 	void addEdgeRight(GRBVar currentVar, int row) throws GRBException {
-		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr();
-		edgeExists.addTerm(-1.0, grid.get(row/size + 1).get(row%size + 1));
-		edgeExists.addTerm(-1.0, grid.get(row/size + 1).get(row%size + 2)); // this is one down from the above
-		edgeExists.addConstant(1.0);
-//		edgeExists.addConstant(1.0);
-//		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "");
-//		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "");
-//		edgeExists.addConstant(1.0);
-		GRBModel.addGenConstrIndicator(currentVar, 1, edgeExists, GRB.EQUAL, 1, "");
-		GRBModel.addGenConstrIndicator(currentVar, 0, edgeExists, GRB.LESS_EQUAL, 0, "");
+		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr(),edgeExists4= new GRBLinExpr();
+		edgeExists.addConstant(1);
+		edgeExists.addTerm(-1,grid.get(row/size + 1).get(row%size + 1));
+		
+		edgeExists2.addConstant(1);
+		edgeExists2.addTerm(-1, grid.get(row/size + 1).get(row%size + 2));
+		
+		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "duncan");
+		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "duncan");
+		
+		edgeExists3.addConstant(1.0);
+		edgeExists3.addTerms(new double[] {-1,-1}, new GRBVar[] {grid.get(row/size + 1).get(row%size + 1), grid.get(row/size + 1).get(row%size + 2)});
+		GRBModel.addConstr(currentVar, GRB.GREATER_EQUAL, edgeExists3, "");
 	}
 
 	void addEdgeLeft(GRBVar currentVar, int row) throws GRBException {
-		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr();		
-		edgeExists.addConstant(1.0);
-//		edgeExists2.addConstant(1.0);
-		edgeExists.addTerm(-1.0, grid.get(row/size + 1).get(row%size + 1));
-		edgeExists.addTerm(-1.0, grid.get(row/size + 1).get(row%size)); // this is one down from the above
-//		edgeExists.addConstant(1.0);
-//		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "");
-//		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "");
-		GRBModel.addGenConstrIndicator(currentVar, 1, edgeExists, GRB.EQUAL, 1, "");
-		GRBModel.addGenConstrIndicator(currentVar, 0, edgeExists, GRB.LESS_EQUAL, 0, "");
+		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr(),edgeExists4= new GRBLinExpr();
+		edgeExists.addConstant(1);
+		edgeExists.addTerm(-1,grid.get(row/size + 1).get(row%size + 1));
+		
+		edgeExists2.addConstant(1);
+		edgeExists2.addTerm(-1, grid.get(row/size + 1).get(row%size));
+		
+		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "duncan");
+		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "duncan");
+		
+		edgeExists3.addConstant(1.0);
+		edgeExists3.addTerms(new double[] {-1,-1}, new GRBVar[] {grid.get(row/size + 1).get(row%size + 1), grid.get(row/size + 1).get(row%size)});
+		GRBModel.addConstr(currentVar, GRB.GREATER_EQUAL, edgeExists3, "");
 	}
 
 	void addEdgeUp(GRBVar currentVar, int row) throws GRBException {		
-		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr();		
-		edgeExists.addConstant(1.0);
-//		edgeExists2.addConstant(1.0);
-		edgeExists.addTerm(-1.0, grid.get(row/size + 1).get(row%size + 1));
-		edgeExists.addTerm(-1.0, grid.get(row/size).get(row%size + 1)); // this is one down from the above
-//		edgeExists.addConstant(1.0);
-//		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "");
-//		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "");
-		GRBModel.addGenConstrIndicator(currentVar, 1, edgeExists, GRB.EQUAL, 1, "");
-		GRBModel.addGenConstrIndicator(currentVar, 0, edgeExists, GRB.LESS_EQUAL, 0, "");
+		
+		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr(),edgeExists4= new GRBLinExpr();
+		edgeExists.addConstant(1);
+		edgeExists.addTerm(-1,grid.get(row/size + 1).get(row%size + 1));
+		
+		edgeExists2.addConstant(1);
+		edgeExists2.addTerm(-1, grid.get(row/size).get(row%size + 1));
+		
+		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "duncan");
+		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "duncan");
+		
+		edgeExists3.addConstant(1.0);
+		edgeExists3.addTerms(new double[] {-1,-1}, new GRBVar[] {grid.get(row/size + 1).get(row%size + 1), grid.get(row/size).get(row%size + 1)});
+		GRBModel.addConstr(currentVar, GRB.GREATER_EQUAL, edgeExists3, "");
 	}
 
 	boolean isDownMost(int row) {
@@ -594,7 +555,7 @@ public class MouseMazeIPModel {
 				}
 			}
 			try {
-				GRBModel.addConstr(oneMovePerK, GRB.LESS_EQUAL, one, "");
+				GRBModel.addConstr(oneMovePerK, GRB.EQUAL, 1, "");
 			} catch (GRBException e) {
 				e.printStackTrace();
 			}

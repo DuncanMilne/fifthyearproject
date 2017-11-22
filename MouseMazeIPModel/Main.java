@@ -65,28 +65,32 @@ public class Main {
 				
 				mouseMazeIPModel.addConstraints();
 				mouseMazeIPModel.setObjectiveFunction();
+				long millis1 = System.currentTimeMillis();
 				mouseMazeIPModel.GRBModel.optimize();
-
+				long millis2 = System.currentTimeMillis();
 				int status = mouseMazeIPModel.GRBModel.get(GRB.IntAttr.Status);
 
 				if (status != GRB.Status.OPTIMAL) {
 					Toolkit.getDefaultToolkit().beep();
 					System.out.println("no solution found in the following instance, status was: " + status);
-					mouseMazeIPModel.GRBModel.computeIIS();
-					mouseMazeIPModel.GRBModel.write("model.ilp");
-					Toolkit.getDefaultToolkit().beep();
+//					mouseMazeIPModel.GRBModel.computeIIS();
+//					mouseMazeIPModel.GRBModel.write("model.ilp");
+//					Toolkit.getDefaultToolkit().beep();
 					
 				} else {
-//					mouseMazeIPModel.utilities.printToFile(mouseMazeIPModel.visits, mouseMazeIPModel.decisions, mouseMazeIPModel.grid);
-//					System.out.println((int) mouseMazeIPModel.T.getValue());
+					mouseMazeIPModel.utilities.printToFile(mouseMazeIPModel.visits, mouseMazeIPModel.decisions, mouseMazeIPModel.grid);
 					mouseMazeIPModel.utilities.printGrid(mouseMazeIPModel.grid);
-					mouseMazeIPModel.printTkMinusOneArray();
+//					mouseMazeIPModel.printTkMinusOneArray();
+					System.out.println("t is " + (int) mouseMazeIPModel.T.getValue());
+					System.out.println((millis2-millis1)/1000 + " seconds " + "took " + (millis2 - millis1)%1000 + "milliseconds");
+					if(mouseMazeIPModel.decisions.get(size).get(1).get((int) mouseMazeIPModel.upperBound-1).get(GRB.DoubleAttr.X) != 1) {
+						System.out.println("UPPERBOUND NOT LARGE ENOUGH");
+					}
 					
 				}
 				mouseMazeIPModel.GRBModel.dispose();
 				mouseMazeIPModel.GRBEnv.dispose();
 			} catch (GRBException e) {
-				//System.out.println("Failed to create grid.");
 				e.printStackTrace();
 			}
 		}

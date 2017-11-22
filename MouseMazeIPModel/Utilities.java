@@ -74,7 +74,7 @@ public class Utilities {
 			else if (settingStartMove(row, column, timestep))
 				currentVar = GRBModel.addVar(1.0, 1.0, 0.0, GRB.BINARY, "");
 			else
-				currentVar = GRBModel.addVar(0.0, upperBound, 0.0, GRB.INTEGER,  "visits row is "+ row + " column is " + column + " timestep is " + timestep);
+				currentVar = GRBModel.addVar(0.0, upperBound + 1, 0.0, GRB.INTEGER,  "visits row is "+ row + " column is " + column + " timestep is " + timestep);
 		} catch (GRBException e) {
 			e.printStackTrace();
 		}
