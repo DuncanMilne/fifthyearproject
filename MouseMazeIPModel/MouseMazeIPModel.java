@@ -151,7 +151,7 @@ public class MouseMazeIPModel {
 	}
 	
 	public void moveRight() throws GRBException {
-		if (!oneAway("right")) {
+//		if (!oneAway("right")) {
 			// leq means <=
 			GRBVar rightLessThanDown = standardBoolean(), rightLeqLeft= standardBoolean(), rightLeqUp = standardBoolean();
 			
@@ -178,13 +178,13 @@ public class MouseMazeIPModel {
 			GRBModel.addGenConstrAnd(satisfied, toSatisfy, "");
 			
 			GRBModel.addConstr(decisions.get(row).get(column + 1).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "");
-		} else {
-			moveToFinish();
-		}
+//		} else {
+//			moveToFinish();
+//		}
 	}
 	
 	public void moveLeft() throws GRBException {
-		if(!oneAway("left")) {
+//		if(!oneAway("left")) {
 			GRBVar leftLessThanDown = standardBoolean(), leftLessThanRight = standardBoolean(), leftLeqUp = standardBoolean();
 			
 			GRBLinExpr leftLessThanDownExpr = new GRBLinExpr(), leftLessThanRightExpr = new GRBLinExpr(), leftLeqUpExpr = new GRBLinExpr();
@@ -211,13 +211,13 @@ public class MouseMazeIPModel {
 			GRBModel.addGenConstrAnd(satisfied, toSatisfy, "");
 			
 			GRBModel.addConstr(decisions.get(row).get(column -1).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "");
-		} else {
-			moveToFinish();
-		}
+//		} else {
+//			moveToFinish();
+//		}
 	}
 	
 	public void moveUp() throws GRBException {
-		if (!oneAway("up") && !oneAway("down")) {
+//		if (!oneAway("up") && !oneAway("down")) {
 			GRBVar upLessThanDown = standardBoolean(), upLessThanRight = standardBoolean(), upLessThanLeft = standardBoolean();
 			
 			GRBLinExpr upLessThanDownExpr = new GRBLinExpr(), upLessThanRightExpr = new GRBLinExpr(), upLessThanLeftExpr = new GRBLinExpr();
@@ -244,9 +244,9 @@ public class MouseMazeIPModel {
 			GRBModel.addGenConstrAnd(satisfied, toSatisfy, "");
 			
 			GRBModel.addConstr(decisions.get(row-1).get(column).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "");
-		} else {
-			moveToFinish();
-		}
+//		} else {
+//			moveToFinish();
+//		}
 	}
 	
 	public void addNegations(String firstString, GRBLinExpr first, String secondString, GRBLinExpr second, String thirdString, GRBLinExpr third) {

@@ -126,7 +126,7 @@ public class Utilities {
 			for (int row = 0; row < size + 2; row++) {
 				for (int column = 0; column < size + 2; column++) {
 						try {
-							 System.out.print(decisions.get(row).get(column).get(timestep).get(GRB.DoubleAttr.X) + " "); // up until timestep 9, squeaky is at all four non edge cells
+							 System.out.print(visits.get(row).get(column).get(timestep).get(GRB.DoubleAttr.X) + " "); // up until timestep 9, squeaky is at all four non edge cells
 						} catch (GRBException e) {
 							e.printStackTrace();
 						}

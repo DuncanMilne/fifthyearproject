@@ -1,0 +1,16 @@
+\ Model (null)_copy
+\ LP format - for model browsing. Use MPS format to capture full model detail.
+Maximize
+  + 11 Constant
+Subject To
+ R224: - 11 grid_row_is_2_column_is_2
+   + visits_row_is_2_column_is_2_timestep_is_0 - C395 = 0
+Bounds
+ grid_row_is_2_column_is_2 = 1
+ -infinity <= visits_row_is_2_column_is_2_timestep_is_0 <= 10
+ Constant = 1
+Binaries
+ grid_row_is_2_column_is_2 C395
+Generals
+ visits_row_is_2_column_is_2_timestep_is_0
+End

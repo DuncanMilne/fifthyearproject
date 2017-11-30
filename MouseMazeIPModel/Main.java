@@ -61,7 +61,9 @@ public class Main {
 			MouseMazeIPModel mouseMazeIPModel = new MouseMazeIPModel(size, score, timeInMinutes, fileToPrintTo);
 			
 			try {
-				mouseMazeIPModel.GRBModel.getEnv().set(GRB.IntParam.OutputFlag, 0);
+//				mouseMazeIPModel.GRBModel.getEnv().set(GRB.IntParam.OutputFlag, 0);
+				
+				mouseMazeIPModel.GRBModel.set(GRB.IntParam.DisplayInterval, 5);;
 				
 				mouseMazeIPModel.addConstraints();
 				mouseMazeIPModel.setObjectiveFunction();
@@ -78,11 +80,11 @@ public class Main {
 //					Toolkit.getDefaultToolkit().beep();
 					
 				} else {
-					mouseMazeIPModel.utilities.printToFile(mouseMazeIPModel.visits, mouseMazeIPModel.decisions, mouseMazeIPModel.grid);
+//					mouseMazeIPModel.utilities.printToFile(mouseMazeIPModel.visits, mouseMazeIPModel.decisions, mouseMazeIPModel.grid);
 					mouseMazeIPModel.utilities.printGrid(mouseMazeIPModel.grid);
 //					mouseMazeIPModel.printTkMinusOneArray();
 					System.out.println("t is " + (int) mouseMazeIPModel.T.getValue());
-					System.out.println((millis2-millis1)/1000 + " seconds " + "took " + (millis2 - millis1)%1000 + "milliseconds");
+					System.out.println("took " + (millis2-millis1)/1000 + "." + (millis2 - millis1)%1000 + " seconds");
 					if(mouseMazeIPModel.decisions.get(size).get(1).get((int) mouseMazeIPModel.upperBound-1).get(GRB.DoubleAttr.X) != 1) {
 						System.out.println("UPPERBOUND NOT LARGE ENOUGH");
 					}
