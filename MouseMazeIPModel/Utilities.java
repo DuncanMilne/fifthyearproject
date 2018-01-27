@@ -1,7 +1,9 @@
 import java.util.ArrayList;
 
 import gurobi.GRB;
+import gurobi.GRBConstr;
 import gurobi.GRBException;
+import gurobi.GRBLinExpr;
 import gurobi.GRBModel;
 import gurobi.GRBVar;
 
@@ -22,14 +24,16 @@ public class Utilities {
 		ArrayList<GRBVar> tempRow;
 		GRBVar currentVar = null;
 
+		GRBLinExpr setNumberOfObstacles = new GRBLinExpr(); 
 		for (int row = 0; row < size + 2; row++) {
 			tempRow = new ArrayList<GRBVar>();
 			for (int column = 0; column < size + 2; column++) {
 				try { // this if statement can probably be removed when proper feasiblity constraints are added
 					if (atEdge(row, column)) {
-						currentVar = GRBModel.addVar(1.0, 1.0, 0.0, GRB.BINARY, "grid row is "+ row + " column is " + column);
+						currentVar = GRBModel.addVar(1.0, 1.0, 0.0, GRB.BINARY, "grid_row_is_"+ row + "_column_is_" + column);
 					} else {
-						currentVar = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "grid row is "+ row + " column is " + column);
+						currentVar = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "grid_row_is_"+ row + "_column_is_" + column);
+						setNumberOfObstacles.addTerm(1.0, currentVar);
 					}
 				} catch (GRBException e) {
 					e.printStackTrace();
@@ -39,6 +43,12 @@ public class Utilities {
 			grid.add(tempRow);
 		}
 
+//		try {
+//			GRBModel.addConstr(setNumberOfObstacles, GRB.EQUAL, 1, "Must be  1 obstacle");
+//		} catch (GRBException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
 		return grid;
 	}
 
@@ -70,11 +80,11 @@ public class Utilities {
 		
 		try {
 			if (atEdge(row, column))
-				currentVar = GRBModel.addVar(upperBound + 1, upperBound + 1, 0.0, GRB.INTEGER, "visits row is "+ row + " column is " + column + " timestep is " + timestep);
+				currentVar = GRBModel.addVar(upperBound + 1, upperBound + 1, 0.0, GRB.INTEGER, "visits_row_is_"+ row + "_column_is_" + column + "_timestep_is_" + timestep);
 			else if (settingStartMove(row, column, timestep))
-				currentVar = GRBModel.addVar(1.0, 1.0, 0.0, GRB.BINARY, "");
+				currentVar = GRBModel.addVar(1.0, 1.0, 0.0, GRB.BINARY, "visits_row_is_"+ row + "_column_is_" + column + "_timestep_is_" + timestep);
 			else
-				currentVar = GRBModel.addVar(0.0, upperBound + 1, 0.0, GRB.INTEGER,  "visits row is "+ row + " column is " + column + " timestep is " + timestep);
+				currentVar = GRBModel.addVar(0.0, upperBound + 1, 0.0, GRB.INTEGER,  "visits_row_is_"+ row + "_column_is_" + column + "_timestep_is_" + timestep);
 		} catch (GRBException e) {
 			e.printStackTrace();
 		}
@@ -103,9 +113,9 @@ public class Utilities {
 				for (int timestep = 0; timestep < upperBound; timestep++) {
 						try {
 							if(settingStartMove(row, column, timestep))
-								currentVar = GRBModel.addVar(1.0, 1.0, 0.0, GRB.BINARY, "");
+								currentVar = GRBModel.addVar(1.0, 1.0, 0.0, GRB.BINARY, "decisions_row_is_"+ row + "_column_is_" + column + "_timestep_is_" + timestep);
 							else
-								currentVar = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "");
+								currentVar = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "decisions_row_is_"+ row + "_column_is_" + column + "_timestep_is_" + timestep);
 						} catch (GRBException e) {
 							e.printStackTrace();
 						}
@@ -115,7 +125,6 @@ public class Utilities {
 			}
 			decisions.add(tempRow);
 		}
-				
 		return decisions;
 	}
 	

@@ -2,6 +2,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import gurobi.*;
+
 public class MouseMazeIPModel {
 
 	public GRBEnv GRBEnv;
@@ -18,32 +19,31 @@ public class MouseMazeIPModel {
 	public ArrayList<ArrayList<ArrayList<GRBVar>>> visits;
 	
 	int row, column, timestep;
-	GRBVar[][] TkMinusOne;
-	GRBVar[][][] TkMinusOneArray;
+	GRBVar[][] TkMinus1;
+	GRBVar[][][] TkMinus1Array;
 	GRBVar[][] Tk;
 
-	// We have to compare things to one regularly so a linear expression containing one is useful.
-	GRBLinExpr one = new GRBLinExpr();
+	// We have to compare things to 1 regularly so a linear expression containing 1 is useful.
+	//GRBLinExpr 1 = new GRBLinExpr();
 	ArrayList<GRBVar> listOfNonAccessedVars;
 	
-	// TODO add proper feasibility constraints. I believe it does not work currently as the current constraint only says that at one timestep, squeaky must be at the finish.
 	// This means infeasible mazes are allowed since we just make him not able to move then jump him to the end.
 	
 	public MouseMazeIPModel(int size, int score, int timeInMinutes, String fileToPrintTo) {
-		one.addConstant(1.0);
 		try {
 			GRBEnv = new GRBEnv();
 			GRBModel = new GRBModel(GRBEnv);
 		} catch (GRBException e) {
 			e.printStackTrace();
 		}
-		this.upperBound = 50;
+		this.upperBound =100;
 		this.size = size;
 		this.utilities = new Utilities(size, GRBModel, (int) upperBound);
 		grid = utilities.createGrid();
 		visits = utilities.createVisits();
 		decisions = utilities.createDecisions();
 		addConstraints();
+		setObjectiveFunction();
 	}
 	
 	public void addConstraints() {
@@ -57,14 +57,14 @@ public class MouseMazeIPModel {
 				}
 			}
 		}
-//		
-		try {
-			GRBVar feasiblePath = mazeFeasibilityConstraints();
-			GRBModel.addConstr(feasiblePath, GRB.EQUAL, 1, "");
-		} catch (GRBException e) {
-			e.printStackTrace();
-		}
-		oneMoveAtATime();
+//		try {
+//			GRBVar feasiblePath = mazeFeasibilityConstraints();
+//			GRBModel.addConstr(feasiblePath, GRB.EQUAL, 1, "");
+//		} catch (GRBException e) {
+//			e.printStackTrace();
+//		}
+		basicMazeFeasibilityConstraints();
+	    oneMoveAtATime();
 	}
 	
 	public void visitsConstraints() {
@@ -76,15 +76,17 @@ public class MouseMazeIPModel {
 		ones = new double[timestep+1];
 		Arrays.fill(ones, 1.0);
 		
-		GRBVar[] decisionsUntilK = decisions.get(row).get(column).subList(0, timestep+1).toArray(new GRBVar[timestep+1]);
+		GRBVar[] decisionsUntilK = decisions.get(row).get(column).subList(0, timestep+1).toArray(new GRBVar[timestep+1]); // decisions to move to this cell, up until this point
 		
 		try {
 			sumOfDecisions = new GRBLinExpr();
 			sumOfDecisions.addTerms(ones, decisionsUntilK);
-			sumOfDecisions.addTerm(upperBound + 1, grid.get(row).get(column));
-			GRBModel.addConstr(visits.get(row).get(column).get(timestep), GRB.EQUAL, sumOfDecisions, "");
+			sumOfDecisions.addTerm(upperBound + 1, grid.get(row).get(column));	// if obstacle present
+			GRBModel.addConstr(visits.get(row).get(column).get(timestep), GRB.EQUAL, sumOfDecisions, "visit1AtATimeTimestep_" + timestep); // TODO look at this - should it be 
 		} catch (GRBException e) {
 			e.printStackTrace();
+			System.out.println("Abnormal exception - exiting now.");
+			System.exit(1);
 		}
 	}
 	
@@ -93,7 +95,7 @@ public class MouseMazeIPModel {
 			stayStill();
 		} else {
 			try {
-				// we could return whether or not constraints are satisfied for each move and then say down must be geq LRU etc...
+				// we could return whether or not constraints are satisfied for each move and then say down must be GEQ LRU etc...
 				moveDown();
 				moveRight();
 				moveLeft();
@@ -114,15 +116,13 @@ public class MouseMazeIPModel {
 		GRBLinExpr currentPos = new GRBLinExpr();
 		currentPos.addTerm(1.0, decisions.get(row).get(column).get(timestep));
 		try {
-			GRBModel.addConstr(nextPos, GRB.GREATER_EQUAL, currentPos, "");
+			GRBModel.addConstr(nextPos, GRB.GREATER_EQUAL, currentPos, "stayStillAtTimestep_" +timestep);
 		} catch (GRBException e) {
 			e.printStackTrace();
 		}
 	}
 	
 	public void moveDown() throws GRBException {
-		if (!oneAway("down")) {
-			// leq means <=
 			GRBVar downLeqRight = standardBoolean(), downLeqLeft = standardBoolean(), downLeqUp = standardBoolean();
 			
 			GRBLinExpr downLeqRightExpr = new GRBLinExpr(), downLeqLeftExpr = new GRBLinExpr(), downLeqUpExpr = new GRBLinExpr();
@@ -144,15 +144,10 @@ public class MouseMazeIPModel {
 			
 			GRBModel.addGenConstrAnd(satisfied, toSatisfy, "");
 			
-			GRBModel.addConstr(decisions.get(row + 1).get(column).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "");
-		} else {
-			moveToFinish();
-		}
+			GRBModel.addConstr(decisions.get(row + 1).get(column).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "moveDownRow_"+ row +"_Column_" + column + "_Timestep_" + timestep);
 	}
 	
 	public void moveRight() throws GRBException {
-//		if (!oneAway("right")) {
-			// leq means <=
 			GRBVar rightLessThanDown = standardBoolean(), rightLeqLeft= standardBoolean(), rightLeqUp = standardBoolean();
 			
 			GRBLinExpr rightLessThanDownExpr = new GRBLinExpr(), rightLeqLeftExpr = new GRBLinExpr(), rightLeqThanUpExpr = new GRBLinExpr();
@@ -178,13 +173,9 @@ public class MouseMazeIPModel {
 			GRBModel.addGenConstrAnd(satisfied, toSatisfy, "");
 			
 			GRBModel.addConstr(decisions.get(row).get(column + 1).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "");
-//		} else {
-//			moveToFinish();
-//		}
 	}
 	
 	public void moveLeft() throws GRBException {
-//		if(!oneAway("left")) {
 			GRBVar leftLessThanDown = standardBoolean(), leftLessThanRight = standardBoolean(), leftLeqUp = standardBoolean();
 			
 			GRBLinExpr leftLessThanDownExpr = new GRBLinExpr(), leftLessThanRightExpr = new GRBLinExpr(), leftLeqUpExpr = new GRBLinExpr();
@@ -195,8 +186,7 @@ public class MouseMazeIPModel {
 			addTermsForAddition("left", leftLessThanDownExpr, leftLessThanRightExpr, leftLeqUpExpr);
 			
 			addNegations("down", leftLessThanDownExpr, "right", leftLessThanRightExpr, "up", leftLeqUpExpr);
-			
-//			
+
 			GRBModel.addGenConstrIndicator(leftLessThanDown, 1, leftLessThanDownExpr, GRB.LESS_EQUAL, 0, "");
 			GRBModel.addGenConstrIndicator(leftLessThanDown, 0, leftLessThanDownExpr, GRB.GREATER_EQUAL, 1, "");
 			GRBModel.addGenConstrIndicator(leftLessThanRight, 1, leftLessThanRightExpr, GRB.LESS_EQUAL, 0, "");
@@ -211,13 +201,9 @@ public class MouseMazeIPModel {
 			GRBModel.addGenConstrAnd(satisfied, toSatisfy, "");
 			
 			GRBModel.addConstr(decisions.get(row).get(column -1).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "");
-//		} else {
-//			moveToFinish();
-//		}
 	}
 	
 	public void moveUp() throws GRBException {
-//		if (!oneAway("up") && !oneAway("down")) {
 			GRBVar upLessThanDown = standardBoolean(), upLessThanRight = standardBoolean(), upLessThanLeft = standardBoolean();
 			
 			GRBLinExpr upLessThanDownExpr = new GRBLinExpr(), upLessThanRightExpr = new GRBLinExpr(), upLessThanLeftExpr = new GRBLinExpr();
@@ -244,9 +230,6 @@ public class MouseMazeIPModel {
 			GRBModel.addGenConstrAnd(satisfied, toSatisfy, "");
 			
 			GRBModel.addConstr(decisions.get(row-1).get(column).get(timestep + 1), GRB.GREATER_EQUAL, satisfied, "");
-//		} else {
-//			moveToFinish();
-//		}
 	}
 	
 	public void addNegations(String firstString, GRBLinExpr first, String secondString, GRBLinExpr second, String thirdString, GRBLinExpr third) {
@@ -329,20 +312,20 @@ public class MouseMazeIPModel {
 		}
 	}
 	
-	public void moveToFinish() {
-		GRBLinExpr finish = new GRBLinExpr();
-		GRBLinExpr current = new GRBLinExpr();
-		current.addTerm(1.0, decisions.get(row).get(column).get(timestep));
-		finish.addTerm(1.0, decisions.get(size).get(1).get(timestep + 1));
-		try {
-			GRBModel.addConstr(finish, GRB.GREATER_EQUAL, current, "");
-		} catch (GRBException e) {
-			e.printStackTrace();
-		}
-	}
+//	public void moveToFinish() {
+//		GRBLinExpr finish = new GRBLinExpr();
+//		GRBLinExpr current = new GRBLinExpr();
+//		current.addTerm(1.0, decisions.get(row).get(column).get(timestep));
+//		finish.addTerm(1.0, decisions.get(size).get(1).get(timestep + 1));
+//		try {
+//			GRBModel.addConstr(finish, GRB.GREATER_EQUAL, current, "");
+//		} catch (GRBException e) {
+//			e.printStackTrace();
+//		}
+//	}
 	
 	// indicator variable is 1 if the sum is leq than 0, 0 if geq than 1
-	public void greaterThanOneIndicator(GRBVar indicator, GRBLinExpr sum) {
+	public void greaterThan1Indicator(GRBVar indicator, GRBLinExpr sum) {
 		try {
 			GRBModel.addGenConstrIndicator(indicator, 1, sum, GRB.LESS_EQUAL, 0.0, "");
 			GRBModel.addGenConstrIndicator(indicator, 0, sum, GRB.GREATER_EQUAL, 1.0, "");
@@ -358,7 +341,7 @@ public class MouseMazeIPModel {
 		
 		try {
 			obstaclePlusMovement.addTerm(1.0,  decisions.get(row).get(column).get(timestep));
-			GRBModel.addConstr(obstaclePlusMovement, GRB.LESS_EQUAL, one, "");
+			GRBModel.addConstr(obstaclePlusMovement, GRB.LESS_EQUAL, 1, "");
 		} catch (GRBException e) {
 			e.printStackTrace();
 		}
@@ -366,7 +349,7 @@ public class MouseMazeIPModel {
 	 
 	public GRBVar mazeFeasibilityConstraints() throws GRBException {
 		
-		TkMinusOne = new GRBVar[size*size][size*size]; // pathtostart[0][i] (first row) represents the distance from 1,1 to all other vertices. when doing with size = 3, this will be a 9x9
+		TkMinus1 = new GRBVar[size*size][size*size]; // pathtostart[0][i] (first row) represents the distance from 1,1 to all other vertices. when doing with size = 3, this will be a 9x9
 		
 		// Maintain list of vars that are not possible when k = 0 due to the cells not being adjacent
 		listOfNonAccessedVars = new ArrayList<GRBVar>();
@@ -374,10 +357,10 @@ public class MouseMazeIPModel {
 		for (int row = 0; row < size*size; row ++) {
 			for (int column = 0; column < size*size; column ++) {
 				if (row != column) {
-					TkMinusOne[row][column] = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "FWmatrix row " + row + " column "+ column);
-					listOfNonAccessedVars.add(TkMinusOne[row][column]);
+					TkMinus1[row][column] = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "FWmatrix row " + row + " column "+ column);
+					listOfNonAccessedVars.add(TkMinus1[row][column]);
 				} else {
-					TkMinusOne[row][column] = GRBModel.addVar(1.0, 1.0, 0.0, GRB.BINARY, "FWmatrix row " + row + " column " + column); // There is a path between i and i
+					TkMinus1[row][column] = GRBModel.addVar(1.0, 1.0, 0.0, GRB.BINARY, "FWmatrix row " + row + " column " + column); // There is a path between i and i
 				}
 			}	
 		}
@@ -385,20 +368,20 @@ public class MouseMazeIPModel {
 		// do we have to say if we have set there to en edge, there is not an edge..  ??? for example at 1,1 there is no edge to 2,2 but we never say that it there is not an edge
 		for (int row = 0; row < size * size; row++) {
 			if (row < (size*size) - size) { // if we're not at the bottom row. this should not be true if we are at rows 2 and 3 for a 2x2
-				addEdgeDown(TkMinusOne[row][row+size], row);		// there is an edge between each pair of adjacent cells unless there is an obstacle
-				listOfNonAccessedVars.remove(TkMinusOne[row][row+size]);
+				addEdgeDown(TkMinus1[row][row+size], row);		// there is an edge between each pair of adjacent cells unless there is an obstacle
+				listOfNonAccessedVars.remove(TkMinus1[row][row+size]);
 			}
 			if(row % size != size-1) { 
-				addEdgeRight(TkMinusOne[row][row+1], row);
-				listOfNonAccessedVars.remove(TkMinusOne[row][row+1]);
+				addEdgeRight(TkMinus1[row][row+1], row);
+				listOfNonAccessedVars.remove(TkMinus1[row][row+1]);
 			}
 			if(row % size != 0) {
-				addEdgeLeft(TkMinusOne[row][row-1], row);
-				listOfNonAccessedVars.remove(TkMinusOne[row][row-1]);
+				addEdgeLeft(TkMinus1[row][row-1], row);
+				listOfNonAccessedVars.remove(TkMinus1[row][row-1]);
 			}
 			if(row >= size) {
-				addEdgeUp(TkMinusOne[row][row-size], row);
-				listOfNonAccessedVars.remove(TkMinusOne[row][row-size]);
+				addEdgeUp(TkMinus1[row][row-size], row);
+				listOfNonAccessedVars.remove(TkMinus1[row][row-size]);
 			}
 		}
 
@@ -406,31 +389,31 @@ public class MouseMazeIPModel {
 			GRBModel.addConstr(var, GRB.LESS_EQUAL, 0, "");
 		}
 		
-		TkMinusOneArray = new GRBVar[size*size+1][size*size][size*size];
-		TkMinusOneArray[0] = TkMinusOne;		
+		TkMinus1Array = new GRBVar[size*size+1][size*size][size*size];
+		TkMinus1Array[0] = TkMinus1;		
 		// an edge exists if they are adjacent and neither has an obstacle. if an edge exists, variable is 1.
 		for (int k = 0; k < size*size; k ++) {	// for every vertex, try to use it as an intermediate vertex between every other pair of vertices
 			Tk = new GRBVar[size*size][size*size]; // pathtostart[0][i] (first row) represents the distance from 1,1 to all other vertices. when doing with size = 3, this will be a 9x9
 			for (int i = 0; i < size*size; i ++) {
 				for (int j = 0; j < size*size; j ++) {
-					Tk[i][j] = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "");
+					Tk[i][j] = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "Tk_row" + "_"+i+"_column_"+j);
 					GRBVar Cijk = conjunction(k, i, j);
-					GRBModel.addGenConstrOr(Tk[i][j], new GRBVar[] {Cijk, TkMinusOne[i][j]}, "");
+					GRBModel.addGenConstrOr(Tk[i][j], new GRBVar[] {Cijk, TkMinus1[i][j]},  "Tk_row" + "_"+i+"_column_"+j);
 				}
 			}
-			TkMinusOne = Tk;
+			TkMinus1 = Tk;
 
-			TkMinusOneArray[k+1] = TkMinusOne;
+			TkMinus1Array[k+1] = TkMinus1;
 		}
-		return TkMinusOne[(size*size)-size	][0];
+		return TkMinus1[(size*size)-size	][0];
 	}
 	
-	void printTkMinusOneArray() {
+	void printTkMinus1Array() {
 		for (int k = 0; k < size*size+1; k++) {
 			for (int i = 0; i < size*size; i++) {
 				for (int j = 0; j < size*size; j++) {
 					try {
-						System.out.print((int) TkMinusOneArray[k][i][j].get(GRB.DoubleAttr.X) + " ");
+						System.out.print((int) TkMinus1Array[k][i][j].get(GRB.DoubleAttr.X) + " ");
 					} catch (GRBException e) {
 						e.printStackTrace();
 					}
@@ -443,15 +426,15 @@ public class MouseMazeIPModel {
 	}
 	
 	GRBVar conjunction(int k, int i, int j) throws GRBException {
-		GRBVar Cijk = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "");
-		GRBVar tikMinusOne = TkMinusOne[i][k];
-		GRBVar tkjMinusOne = TkMinusOne[k][j];
-		GRBModel.addGenConstrAnd(Cijk, new GRBVar[] {tikMinusOne, tkjMinusOne}, "");
+		GRBVar Cijk = GRBModel.addVar(0.0, 1.0, 0.0, GRB.BINARY, "Cijk_row_"+ row +"_column_" + column + "_timestep_" + timestep);
+		GRBVar tikMinus1 = TkMinus1[i][k];
+		GRBVar tkjMinus1 = TkMinus1[k][j];
+		GRBModel.addGenConstrAnd(Cijk, new GRBVar[] {tikMinus1, tkjMinus1}, "CijkConstraint_row"+ row+ "_column_" + column +"_timestep_" + timestep);
 		return Cijk;
 	}
 	
 	void addEdgeDown(GRBVar currentVar, int row) throws GRBException {
-		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr(),edgeExists4= new GRBLinExpr();
+		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr();
 		edgeExists.addConstant(1);
 		edgeExists.addTerm(-1,grid.get(row/size + 2).get(row%size + 1));
 		
@@ -460,7 +443,6 @@ public class MouseMazeIPModel {
 		
 		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "duncan");
 		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "duncan");
-
 		edgeExists3.addConstant(1.0);
 		edgeExists3.addTerms(new double[] {-1,-1}, new GRBVar[] {grid.get(row/size + 1).get(row%size + 1), grid.get(row/size + 2).get(row%size + 1)});
 		GRBModel.addConstr(currentVar, GRB.GREATER_EQUAL, edgeExists3, "");
@@ -469,7 +451,7 @@ public class MouseMazeIPModel {
 	// grid contains edges adjacent to grid so just doing grid.get(row+whichRow).get(column) will not work as we get the two edges as well
 	// if column%size == 0 || column % size+1 == 0 - nope
 	void addEdgeRight(GRBVar currentVar, int row) throws GRBException {
-		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr(),edgeExists4= new GRBLinExpr();
+		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr();
 		edgeExists.addConstant(1);
 		edgeExists.addTerm(-1,grid.get(row/size + 1).get(row%size + 1));
 		
@@ -478,14 +460,13 @@ public class MouseMazeIPModel {
 		
 		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "duncan");
 		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "duncan");
-		
 		edgeExists3.addConstant(1.0);
 		edgeExists3.addTerms(new double[] {-1,-1}, new GRBVar[] {grid.get(row/size + 1).get(row%size + 1), grid.get(row/size + 1).get(row%size + 2)});
 		GRBModel.addConstr(currentVar, GRB.GREATER_EQUAL, edgeExists3, "");
 	}
 
 	void addEdgeLeft(GRBVar currentVar, int row) throws GRBException {
-		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr(),edgeExists4= new GRBLinExpr();
+		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr();
 		edgeExists.addConstant(1);
 		edgeExists.addTerm(-1,grid.get(row/size + 1).get(row%size + 1));
 		
@@ -494,7 +475,6 @@ public class MouseMazeIPModel {
 		
 		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "duncan");
 		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "duncan");
-		
 		edgeExists3.addConstant(1.0);
 		edgeExists3.addTerms(new double[] {-1,-1}, new GRBVar[] {grid.get(row/size + 1).get(row%size + 1), grid.get(row/size + 1).get(row%size)});
 		GRBModel.addConstr(currentVar, GRB.GREATER_EQUAL, edgeExists3, "");
@@ -502,7 +482,7 @@ public class MouseMazeIPModel {
 
 	void addEdgeUp(GRBVar currentVar, int row) throws GRBException {		
 		
-		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr(),edgeExists4= new GRBLinExpr();
+		GRBLinExpr edgeExists = new GRBLinExpr(), edgeExists2= new GRBLinExpr(), edgeExists3= new GRBLinExpr();
 		edgeExists.addConstant(1);
 		edgeExists.addTerm(-1,grid.get(row/size + 1).get(row%size + 1));
 		
@@ -511,7 +491,6 @@ public class MouseMazeIPModel {
 		
 		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists, "duncan");
 		GRBModel.addConstr(currentVar, GRB.LESS_EQUAL, edgeExists2, "duncan");
-		
 		edgeExists3.addConstant(1.0);
 		edgeExists3.addTerms(new double[] {-1,-1}, new GRBVar[] {grid.get(row/size + 1).get(row%size + 1), grid.get(row/size).get(row%size + 1)});
 		GRBModel.addConstr(currentVar, GRB.GREATER_EQUAL, edgeExists3, "");
@@ -532,16 +511,17 @@ public class MouseMazeIPModel {
 	boolean isUpMost(int row) {
 		return (row == 1);
 	}
-//	public void basicFeasibility() {
-//		GRBLinExpr feasibilityConstraint = new GRBLinExpr();
-//		feasibilityConstraint.addTerm(1.0,  decisions.get(size).get(1).get((int) upperBound-1));
-//		
-//		try {
-//			GRBModel.addConstr(feasibilityConstraint, GRB.GREATER_EQUAL, one, "");
-//		} catch (GRBException e) {
-//			e.printStackTrace();
-//		}
-//	}
+	
+	public void basicMazeFeasibilityConstraints() {
+		GRBLinExpr feasibilityConstraint = new GRBLinExpr();
+		feasibilityConstraint.addTerm(1.0,  decisions.get(size).get(1).get((int) upperBound-1));
+		
+		try {
+			GRBModel.addConstr(feasibilityConstraint, GRB.GREATER_EQUAL, 1, "");
+		} catch (GRBException e) {
+			e.printStackTrace();
+		}
+	}
 	
 	// At timestep k we sum up all of squeakyDecision variables at k and make sure they are leq than 1
 	public void oneMoveAtATime() {

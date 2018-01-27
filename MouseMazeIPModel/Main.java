@@ -30,21 +30,21 @@ public class Main {
 					try {
 						size = Integer.parseInt(args[i+1]);
 					} catch (NumberFormatException e) {
-						System.out.println("The value after '-size' must be an integer! Run with the flag -h for help.");
+						System.out.println("The value after 'size' must be an integer! Run with the flag 'h' for help.");
 					}
 					break;
 				case "score": 
 					try {
 						score = Integer.parseInt(args[i+1]);
 					} catch (NumberFormatException e) {
-						System.out.println("The value after '-score' must be an integer! Run with the flag -h for help.");
+						System.out.println("The value after 'score' must be an integer! Run with the flag 'h' for help.");
 					}
 					break;
 				case "t": 
 					try {
 						timeInMinutes = Integer.parseInt(args[i+1]);
 					} catch (NumberFormatException e) {
-						System.out.println("The value after '-t' must be an integer! Run with the flag -h for help.");
+						System.out.println("The value after 't' must be an integer! Run with the flag 'h' for help.");
 					}
 					break;
 				case "f": 
@@ -61,28 +61,27 @@ public class Main {
 			MouseMazeIPModel mouseMazeIPModel = new MouseMazeIPModel(size, score, timeInMinutes, fileToPrintTo);
 			
 			try {
-//				mouseMazeIPModel.GRBModel.getEnv().set(GRB.IntParam.OutputFlag, 0);
+     			//mouseMazeIPModel.GRBModel.getEnv().set(GRB.IntParam.OutputFlag, 0);
 				
-				mouseMazeIPModel.GRBModel.set(GRB.IntParam.DisplayInterval, 5);;
+				mouseMazeIPModel.GRBModel.set(GRB.IntParam.DisplayInterval, 20);
 				
-				mouseMazeIPModel.addConstraints();
-				mouseMazeIPModel.setObjectiveFunction();
 				long millis1 = System.currentTimeMillis();
 				mouseMazeIPModel.GRBModel.optimize();
 				long millis2 = System.currentTimeMillis();
 				int status = mouseMazeIPModel.GRBModel.get(GRB.IntAttr.Status);
 
+//				mouseMazeIPModel.utilities.printToFile(mouseMazeIPModel.visits, mouseMazeIPModel.decisions,mouseMazeIPModel.grid);
 				if (status != GRB.Status.OPTIMAL) {
 					Toolkit.getDefaultToolkit().beep();
 					System.out.println("no solution found in the following instance, status was: " + status);
-//					mouseMazeIPModel.GRBModel.computeIIS();
-//					mouseMazeIPModel.GRBModel.write("model.ilp");
-//					Toolkit.getDefaultToolkit().beep();
+					mouseMazeIPModel.GRBModel.computeIIS();
+					mouseMazeIPModel.GRBModel.write("model.ilp");
+					Toolkit.getDefaultToolkit().beep();
 					
 				} else {
 //					mouseMazeIPModel.utilities.printToFile(mouseMazeIPModel.visits, mouseMazeIPModel.decisions, mouseMazeIPModel.grid);
-					mouseMazeIPModel.utilities.printGrid(mouseMazeIPModel.grid);
-//					mouseMazeIPModel.printTkMinusOneArray();
+//					mouseMazeIPModel.GRBModel.write("out.mst");
+//					mouseMazeIPModel.utilities.printGrid(mouseMazeIPModel.grid);
 					System.out.println("t is " + (int) mouseMazeIPModel.T.getValue());
 					System.out.println("took " + (millis2-millis1)/1000 + "." + (millis2 - millis1)%1000 + " seconds");
 					if(mouseMazeIPModel.decisions.get(size).get(1).get((int) mouseMazeIPModel.upperBound-1).get(GRB.DoubleAttr.X) != 1) {
@@ -100,10 +99,10 @@ public class Main {
 
 	private static void listCommands() {
 		System.out.println("You can use the following flags when running Solver.java");
-		System.out.println("-h - lists all commands");
-		System.out.println("-size - takes one integer as a parameter representing the size of the rows and columns");
-		System.out.println("-score - Takes one parameter representing the score the solver is aiming to beat. If this flag is not included the solver will solve for the optimal solution");
-		System.out.println("-t - Takes one parameter specifying the time in minutes that the solver is to run for before termininating and giving the best score found thus far.");
-		System.out.println("-f - Takes one string parameter, when the solver completes it's objective the results will be printed to this file.");
+		System.out.println("'h' - lists all commands");
+		System.out.println("'size' - takes 1 integer as a parameter representing the size of the rows and columns");
+		System.out.println("'score' - Takes 1 parameter representing the score the solver is aiming to beat. If this flag is not included the solver will solve for the optimal solution");
+		System.out.println("'t' - Takes 1 parameter specifying the time in minutes that the solver is to run for before termininating and giving the best score found thus far.");
+		System.out.println("'f' - Takes 1 string parameter, when the solver completes it's objective the results will be printed to this file.");
 	}
 }
