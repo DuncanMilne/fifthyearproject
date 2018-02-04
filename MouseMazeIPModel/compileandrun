@@ -1,2 +1,2 @@
 javac -cp /mnt/c/gurobi751/win64/lib/gurobi.jar *.java
-java -cp /mnt/c/gurobi751/win64/lib/gurobi.jar:. Main $1 $2 $3 $4 $5 | egrep -v "Academic license"
+java -cp /mnt/c/gurobi751/win64/lib/gurobi.jar:. Main $1 $2 $3 $4 $5 $6 $7 $8 | egrep -v "Academic license"

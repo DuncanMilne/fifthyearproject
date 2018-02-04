@@ -1,3 +1,9 @@
 verifier/.idea
 *.iml
 *.class
+*.log
+*.grbr
+*.ilp
+*.mps
+*.rlp
+

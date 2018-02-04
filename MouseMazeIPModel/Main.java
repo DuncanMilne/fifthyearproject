@@ -19,6 +19,8 @@ public class Main {
 		int timeInMinutes = 0;
 		String fileToPrintTo = "";
 		String arg;
+		int obs = -1;
+		int upperBound = 50;
 		for(int i = 0; i < args.length; i+=2) {
 			arg = args[i];
 			switch (arg) {
@@ -50,27 +52,46 @@ public class Main {
 				case "f": 
 					fileToPrintTo = args[i+1];
 					break;
+				case "obs": 
+					obs = Integer.parseInt(args[i+1]);
+					break;
+				case "ub": 
+					upperBound = Integer.parseInt(args[i+1]);
+					break;
 				default: System.out.println("Invalid flag " + arg);
 			}
+		}
 			
 
 			// If user doesn't set size set it as 1
 			if (size == -1) {
 				size = 1;
 			}
-			MouseMazeIPModel mouseMazeIPModel = new MouseMazeIPModel(size, score, timeInMinutes, fileToPrintTo);
+			MouseMazeIPModel mouseMazeIPModel = new MouseMazeIPModel(size, score, timeInMinutes, fileToPrintTo, upperBound, obs);
 			
 			try {
-     			//mouseMazeIPModel.GRBModel.getEnv().set(GRB.IntParam.OutputFlag, 0);
+//     			mouseMazeIPModel.GRBModel.getEnv().set(GRB.IntParam.OutputFlag, 0);
 				
+				// This determines how long we spend trying to improve on the best bound. The best bound is calculated in the presolve, thus we want to spend as little time as possible improving on the best bound
+//				mouseMazeIPModel.GRBModel.set(GRB.DoubleParam.ImproveStartTime, 0.1);
+//				mouseMazeIPModel.GRBModel.set(GRB.DoubleParam.NodefileStart, 0.5);
+//				mouseMazeIPModel.GRBModel.set(GRB.IntParam.Threads, 1);
+//				mouseMazeIPModel.GRBModel.set(GRB.DoubleParam.Heuristics, 0.001);
+//				mouseMazeIPModel.GRBModel.set(GRB.IntParam.RINS, Integer.MAX_VALUE);
+//				mouseMazeIPModel.GRBModel.set(GRB.IntParam.Method, 1);
+				mouseMazeIPModel.GRBModel.set(GRB.DoubleParam.TuneTimeLimit, 43200);
+				mouseMazeIPModel.GRBModel.write("model.lp");
+					System.out.println("model written");
 				mouseMazeIPModel.GRBModel.set(GRB.IntParam.DisplayInterval, 20);
-				
+				mouseMazeIPModel.GRBModel.set(GRB.IntParam.MIPFocus, 1);
+				mouseMazeIPModel.GRBModel.set(GRB.IntParam.Presolve, 2);
 				long millis1 = System.currentTimeMillis();
 				mouseMazeIPModel.GRBModel.optimize();
 				long millis2 = System.currentTimeMillis();
 				int status = mouseMazeIPModel.GRBModel.get(GRB.IntAttr.Status);
 
-//				mouseMazeIPModel.utilities.printToFile(mouseMazeIPModel.visits, mouseMazeIPModel.decisions,mouseMazeIPModel.grid);
+				mouseMazeIPModel.utilities.printToFile(mouseMazeIPModel.visits, mouseMazeIPModel.decisions,mouseMazeIPModel.grid);
+
 				if (status != GRB.Status.OPTIMAL) {
 					Toolkit.getDefaultToolkit().beep();
 					System.out.println("no solution found in the following instance, status was: " + status);
@@ -79,21 +100,19 @@ public class Main {
 					Toolkit.getDefaultToolkit().beep();
 					
 				} else {
-//					mouseMazeIPModel.utilities.printToFile(mouseMazeIPModel.visits, mouseMazeIPModel.decisions, mouseMazeIPModel.grid);
-//					mouseMazeIPModel.GRBModel.write("out.mst");
-//					mouseMazeIPModel.utilities.printGrid(mouseMazeIPModel.grid);
-					System.out.println("t is " + (int) mouseMazeIPModel.T.getValue());
+					mouseMazeIPModel.utilities.printGrid(mouseMazeIPModel.grid);
+					System.out.println("t is " + (int) mouseMazeIPModel.objective.getValue());
 					System.out.println("took " + (millis2-millis1)/1000 + "." + (millis2 - millis1)%1000 + " seconds");
-					if(mouseMazeIPModel.decisions.get(size).get(1).get((int) mouseMazeIPModel.upperBound-1).get(GRB.DoubleAttr.X) != 1) {
+					if(mouseMazeIPModel.decisions.get(size-1).get(0).get((int) mouseMazeIPModel.upperBound-1).get(GRB.DoubleAttr.X) != 1) {
 						System.out.println("UPPERBOUND NOT LARGE ENOUGH");
 					}
+					System.out.println(mouseMazeIPModel.GRBModel.get(GRB.DoubleAttr.BoundVio));
 					
 				}
 				mouseMazeIPModel.GRBModel.dispose();
 				mouseMazeIPModel.GRBEnv.dispose();
 			} catch (GRBException e) {
 				e.printStackTrace();
-			}
 		}
 	}
 
